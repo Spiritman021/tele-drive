@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -31,12 +31,15 @@ import {
   FileText,
   CheckCircle2,
   Upload,
-  Hash
+  Hash,
+  HelpCircle,
+  Activity,
+  Settings
 } from 'lucide-react';
 import { formatBytes, truncateFileName, parseTagsInput, buildCaption } from '../utils/helpers';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, status, resetConfig, saveConfig } = useAuth();
   const [folders, setFolders] = useState([]);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [files, setFiles] = useState([]);
@@ -59,6 +62,101 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('my-drive'); // 'home' | 'my-drive' | 'computers' | 'shared' | 'recent' | 'starred' | 'spam' | 'trash' | 'storage'
   const [storageUsed, setStorageUsed] = useState(0);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Help & Settings modal states
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // User preferences states
+  const [folderSortOrder, setFolderSortOrder] = useState(() => localStorage.getItem('teledrive_folder_sort') || 'date');
+  const [defaultViewMode, setDefaultViewMode] = useState(() => localStorage.getItem('teledrive_default_view') || 'grid');
+
+  // API credentials states
+  const [apiIdInput, setApiIdInput] = useState('');
+  const [apiHashInput, setApiHashInput] = useState('');
+  const [apiSaving, setApiSaving] = useState(false);
+  const [apiError, setApiError] = useState('');
+  const [apiSuccess, setApiSuccess] = useState('');
+
+  // Cache clearing states
+  const [clearingCache, setClearingCache] = useState(false);
+  const [cacheClearSuccess, setCacheClearSuccess] = useState(false);
+
+  // Sync defaultViewMode with viewMode on initial load or change
+  useEffect(() => {
+    setViewMode(defaultViewMode);
+  }, [defaultViewMode]);
+
+  // Load API config when Settings opens
+  useEffect(() => {
+    if (showSettingsModal) {
+      try {
+        const config = JSON.parse(localStorage.getItem('teledrive_api_config') || '{}');
+        setApiIdInput(config.apiId || '');
+        setApiHashInput(config.apiHash || '');
+      } catch {}
+      setApiError('');
+      setApiSuccess('');
+      setCacheClearSuccess(false);
+    }
+  }, [showSettingsModal]);
+
+  const handleSavePreferences = (sort, view) => {
+    setFolderSortOrder(sort);
+    setDefaultViewMode(view);
+    localStorage.setItem('teledrive_folder_sort', sort);
+    localStorage.setItem('teledrive_default_view', view);
+  };
+
+  const handleSaveApiCredentials = async (e) => {
+    e.preventDefault();
+    if (!apiIdInput || !apiHashInput) {
+      setApiError('Both API ID and API Hash are required.');
+      return;
+    }
+    setApiSaving(true);
+    setApiError('');
+    setApiSuccess('');
+    try {
+      await saveConfig(apiIdInput.trim(), apiHashInput.trim());
+      setApiSuccess('Credentials updated successfully. Reconnecting...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err) {
+      setApiError(err.message || 'Failed to connect. Please check credentials.');
+    } finally {
+      setApiSaving(false);
+    }
+  };
+
+  const handleClearCache = async () => {
+    if (window.confirm('Are you sure you want to clear the local cache? This will redownload metadata and file lists from Telegram.')) {
+      setClearingCache(true);
+      try {
+        await cacheService.clear();
+        setCacheClearSuccess(true);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } catch (err) {
+        console.error('Failed to clear cache:', err);
+        alert('Failed to clear cache.');
+      } finally {
+        setClearingCache(false);
+      }
+    }
+  };
+
+  const sortedFolders = useMemo(() => {
+    return [...folders].sort((a, b) => {
+      if (folderSortOrder === 'name') {
+        return a.name.localeCompare(b.name);
+      } else {
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      }
+    });
+  }, [folders, folderSortOrder]);
 
   // Auto collapse sidebar on mobile
   useEffect(() => {
@@ -941,6 +1039,10 @@ export default function Dashboard() {
         activeDrive={activeDrive}
         onSwitchDrive={handleSwitchDrive}
         onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+        onOpenHelp={() => setShowHelpModal(true)}
+        onOpenSettings={() => setShowSettingsModal(true)}
+        onSelectTab={handleSelectTab}
+        currentFolder={currentFolder}
       />
 
       <div className={`gd-layout-body ${isSidebarCollapsed ? 'gd-sidebar-collapsed' : ''}`}>
@@ -952,7 +1054,7 @@ export default function Dashboard() {
 
         {/* 2. Left Sidebar */}
         <Sidebar
-          folders={folders}
+          folders={sortedFolders}
           currentFolder={currentFolder}
           activeTab={activeTab}
           onSelectTab={handleSelectTab}
@@ -1617,6 +1719,251 @@ export default function Dashboard() {
             <Upload size={48} className="canvas-drag-bounce-icon" style={{ color: 'var(--accent)' }} />
             <h3>{currentFolder ? `Upload to "${currentFolder.name}"` : 'Open a folder first'}</h3>
             <p>{currentFolder ? 'Drop your files here to start uploading' : 'Please open a folder inside My Drive to drop files'}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <div className="modal-overlay" onClick={() => setShowHelpModal(false)}>
+          <div className="modal help-modal shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="text-accent animate-pulse" size={22} style={{ color: 'var(--accent)' }} />
+                <h3>TeleDrive Help & Support</h3>
+              </div>
+              <button className="gd-icon-btn" onClick={() => setShowHelpModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="modal-body text-secondary">
+              <div className="help-hero">
+                <h4>Welcome to TeleDrive!</h4>
+                <p>
+                  TeleDrive is a modern, high-performance web client that transforms Telegram channels into a secure, unlimited cloud file system.
+                </p>
+              </div>
+
+              <div className="help-section">
+                <h5>📁 Telegram as a File System</h5>
+                <p>
+                  Every folder you create in TeleDrive is backed by a dedicated private Telegram channel. 
+                  All files you upload are converted into Telegram messages with document attachments. 
+                  This grants you <strong>unlimited free storage</strong> with a file size limit of up to 2GB (or 4GB for Telegram Premium).
+                </p>
+              </div>
+
+              <div className="help-section">
+                <h5>📌 Pinning & Syncing</h5>
+                <p>
+                  You can pin files in any folder. TeleDrive automatically synchronizes the pin status by using Telegram's native message pinning feature inside the channel. Anyone who has access to the channel will see the pinned files stay pinned at the top.
+                </p>
+              </div>
+
+              <div className="help-section">
+                <h5>🏷️ Hashtag-based Tagging</h5>
+                <p>
+                  Tag files during upload or by renaming them (e.g. <code>#receipt #invoice</code>). 
+                  TeleDrive extracts these tags and allows you to instantly search or filter files by tags using the sidebar list.
+                </p>
+              </div>
+
+              <div className="help-section">
+                <h5>👥 Drives & Shared Storage</h5>
+                <p>
+                  Drives allow you to work in different storage scopes. The Drive Switcher on the top-left lets you switch between 
+                  <strong>My Drive</strong> (your personal folders) and other Telegram channels shared with you where you have download/upload access.
+                </p>
+              </div>
+
+              <div className="help-section">
+                <h5>🗑️ Trash & Retention</h5>
+                <p>
+                  When you delete a file, it moves to the <strong>Trash</strong> folder. Files in the trash remain in Telegram until you permanently delete them from the trash page.
+                </p>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setShowHelpModal(false)}>
+                Got it
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="modal-overlay" onClick={() => setShowSettingsModal(false)}>
+          <div className="modal settings-modal shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Settings className="text-accent" size={22} style={{ color: 'var(--accent)' }} />
+                <h3>TeleDrive Settings</h3>
+              </div>
+              <button className="gd-icon-btn" onClick={() => setShowSettingsModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="modal-body text-secondary">
+              <div className="settings-tabs">
+                {/* 1. API Configuration Section */}
+                <div className="settings-card">
+                  <h4 className="settings-card-title">Telegram API Credentials</h4>
+                  <p className="settings-card-desc">
+                    Configure your API ID and API Hash to establish a custom connection directly to Telegram.
+                  </p>
+                  
+                  <form onSubmit={handleSaveApiCredentials} className="settings-form">
+                    <div className="form-group">
+                      <label>API ID</label>
+                      <input
+                        type="text"
+                        className="input"
+                        placeholder="Enter Telegram API ID"
+                        value={apiIdInput}
+                        onChange={(e) => setApiIdInput(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>API Hash</label>
+                      <input
+                        type="password"
+                        className="input"
+                        placeholder="Enter Telegram API Hash"
+                        value={apiHashInput}
+                        onChange={(e) => setApiHashInput(e.target.value)}
+                      />
+                    </div>
+
+                    {apiError && <div className="settings-error">{apiError}</div>}
+                    {apiSuccess && <div className="settings-success">{apiSuccess}</div>}
+
+                    <div className="settings-form-actions">
+                      <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={apiSaving}
+                      >
+                        {apiSaving ? <Loader2 size={16} className="spin" /> : 'Save & Reconnect'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost text-danger"
+                        onClick={() => {
+                          if (window.confirm('Reset all API configuration? This will clear credentials and session.')) {
+                            resetConfig();
+                            window.location.reload();
+                          }
+                        }}
+                      >
+                        Reset Config
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* 2. User Info & Session Health */}
+                <div className="settings-card">
+                  <h4 className="settings-card-title">Connection Health & Session</h4>
+                  <div className="diagnostics-panel">
+                    <div className="diagnostic-row">
+                      <span className="diagnostic-label">Status:</span>
+                      <span className={`diagnostic-badge ${status === 'authenticated' ? 'connected' : 'disconnected'}`}>
+                        {status === 'authenticated' ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                    {user && (
+                      <>
+                        <div className="diagnostic-row">
+                          <span className="diagnostic-label">Telegram Username:</span>
+                          <span className="diagnostic-value">@{user.username || 'none'}</span>
+                        </div>
+                        <div className="diagnostic-row">
+                          <span className="diagnostic-label">Phone:</span>
+                          <span className="diagnostic-value">{user.phone}</span>
+                        </div>
+                        <div className="diagnostic-row">
+                          <span className="diagnostic-label">Account Name:</span>
+                          <span className="diagnostic-value">{user.firstName} {user.lastName || ''}</span>
+                        </div>
+                        <div className="diagnostic-row">
+                          <span className="diagnostic-label">Telegram User ID:</span>
+                          <span className="diagnostic-value">{user.id?.toString() || 'unknown'}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Cache Management */}
+                <div className="settings-card">
+                  <h4 className="settings-card-title">Cache & Storage Optimization</h4>
+                  <p className="settings-card-desc">
+                    Wipe locally cached folder structures and file indexing. TeleDrive will redownload live details from Telegram.
+                  </p>
+                  
+                  <div className="diagnostics-panel flex flex-col gap-3">
+                    <div className="diagnostic-row">
+                      <span className="diagnostic-label">Total Folders Cached:</span>
+                      <span className="diagnostic-value">{folders.length}</span>
+                    </div>
+                    <div className="diagnostic-row">
+                      <span className="diagnostic-label">Active Storage Drive:</span>
+                      <span className="diagnostic-value">{activeDrive?.title || 'My Drive'}</span>
+                    </div>
+                    
+                    <button
+                      className="btn btn-warning mt-2 flex items-center justify-center gap-2"
+                      onClick={handleClearCache}
+                      disabled={clearingCache}
+                    >
+                      {clearingCache ? <Loader2 size={16} className="spin" /> : null}
+                      <span>Clear Cached Files & Folders</span>
+                    </button>
+                    {cacheClearSuccess && <div className="settings-success mt-1">Cache cleared. Reloading page...</div>}
+                  </div>
+                </div>
+
+                {/* 4. Preferences */}
+                <div className="settings-card">
+                  <h4 className="settings-card-title">User Preferences</h4>
+                  <div className="preference-group">
+                    <div className="form-group">
+                      <label>Default View Mode</label>
+                      <select
+                        className="input select-custom"
+                        value={defaultViewMode}
+                        onChange={(e) => handleSavePreferences(folderSortOrder, e.target.value)}
+                      >
+                        <option value="grid">Grid View</option>
+                        <option value="list">List View</option>
+                      </select>
+                    </div>
+                    <div className="form-group mt-3">
+                      <label>Folder Sort Order</label>
+                      <select
+                        className="input select-custom"
+                        value={folderSortOrder}
+                        onChange={(e) => handleSavePreferences(e.target.value, defaultViewMode)}
+                      >
+                        <option value="date">Date Created (Newest First)</option>
+                        <option value="name">Alphabetical (A-Z)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setShowSettingsModal(false)}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

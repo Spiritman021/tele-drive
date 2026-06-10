@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Settings, HelpCircle, Grid, LogOut, Cloud, Menu, ChevronDown, Check, HardDrive, Users } from 'lucide-react';
+import { Search, Settings, HelpCircle, Grid, LogOut, Cloud, Menu, ChevronDown, Check, HardDrive, Users, Globe, MessageSquare, PieChart, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Header({
@@ -10,6 +10,10 @@ export default function Header({
   activeDrive = null,
   onSwitchDrive,
   onToggleSidebar,
+  onOpenHelp,
+  onOpenSettings,
+  onSelectTab,
+  currentFolder,
 }) {
   const { logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -18,6 +22,9 @@ export default function Header({
   const [showSwitcher, setShowSwitcher] = useState(false);
   const switcherRef = useRef(null);
 
+  const [showAppsMenu, setShowAppsMenu] = useState(false);
+  const appsMenuRef = useRef(null);
+
   useEffect(() => {
     const handleClick = (e) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
@@ -25,6 +32,9 @@ export default function Header({
       }
       if (switcherRef.current && !switcherRef.current.contains(e.target)) {
         setShowSwitcher(false);
+      }
+      if (appsMenuRef.current && !appsMenuRef.current.contains(e.target)) {
+        setShowAppsMenu(false);
       }
     };
     document.addEventListener('click', handleClick);
@@ -111,15 +121,86 @@ export default function Header({
 
       {/* Right: Utilities & Profile */}
       <div className="gd-header-right">
-        <button className="gd-icon-btn" title="Help">
+        <button className="gd-icon-btn" title="Help" onClick={onOpenHelp}>
           <HelpCircle size={20} />
         </button>
-        <button className="gd-icon-btn" title="Settings">
+        <button className="gd-icon-btn" title="Settings" onClick={onOpenSettings}>
           <Settings size={20} />
         </button>
-        <button className="gd-icon-btn" title="Google apps menu">
-          <Grid size={20} />
-        </button>
+        
+        {/* Apps Grid Menu */}
+        <div className="gd-apps-wrapper" ref={appsMenuRef}>
+          <button
+            className={`gd-icon-btn ${showAppsMenu ? 'active' : ''}`}
+            onClick={() => setShowAppsMenu(!showAppsMenu)}
+            title="Google apps menu"
+          >
+            <Grid size={20} />
+          </button>
+          
+          {showAppsMenu && (
+            <div className="gd-apps-dropdown shadow-lg">
+              <div className="gd-apps-grid">
+                <a
+                  href="https://web.telegram.org"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="gd-app-item"
+                  onClick={() => setShowAppsMenu(false)}
+                >
+                  <div className="gd-app-icon-wrapper telegram-web">
+                    <Globe size={20} />
+                  </div>
+                  <span className="gd-app-title">Telegram Web</span>
+                </a>
+                
+                <button
+                  className={`gd-app-item ${!currentFolder ? 'disabled' : ''}`}
+                  disabled={!currentFolder}
+                  onClick={() => {
+                    if (currentFolder?.channelId) {
+                      const strippedId = currentFolder.channelId.replace('-100', '');
+                      window.open(`https://t.me/c/${strippedId}`, '_blank');
+                    }
+                    setShowAppsMenu(false);
+                  }}
+                  title={currentFolder ? `Open channel for ${currentFolder.name}` : 'Open a folder to view its channel'}
+                >
+                  <div className={`gd-app-icon-wrapper channel-link ${!currentFolder ? 'disabled' : ''}`}>
+                    <MessageSquare size={20} />
+                  </div>
+                  <span className="gd-app-title">Active Channel</span>
+                </button>
+                
+                <button
+                  className="gd-app-item"
+                  onClick={() => {
+                    onSelectTab('storage');
+                    setShowAppsMenu(false);
+                  }}
+                >
+                  <div className="gd-app-icon-wrapper storage-detail">
+                    <PieChart size={20} />
+                  </div>
+                  <span className="gd-app-title">Storage Specs</span>
+                </button>
+                
+                <button
+                  className="gd-app-item"
+                  onClick={() => {
+                    onOpenSettings();
+                    setShowAppsMenu(false);
+                  }}
+                >
+                  <div className="gd-app-icon-wrapper diagnostics">
+                    <Activity size={20} />
+                  </div>
+                  <span className="gd-app-title">Diagnostics</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile Avatar */}
         <div className="gd-profile-wrapper" ref={profileMenuRef}>
@@ -158,3 +239,4 @@ export default function Header({
     </header>
   );
 }
+

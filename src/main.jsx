@@ -7,6 +7,14 @@ import './index.css';
 import App from './App.jsx';
 import telegramService from './services/telegram';
 
+// Capture PWA install prompt early
+window.deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.deferredPrompt = e;
+  window.dispatchEvent(new CustomEvent('pwa-prompt-available'));
+});
+
 // Register Service Worker for media streaming
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

@@ -5368,5 +5368,310 @@ button.breadcrumb-item:hover {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Header Utilities: Help, Settings, and Apps Dropdown
+   ────────────────────────────────────────────────────────────── */
+
+/* Apps Grid Menu Dropdown */
+.gd-apps-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.gd-apps-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  z-index: var(--z-dropdown);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.gd-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.gd-app-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) var(--space-2);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  outline: none;
+}
+
+.gd-app-item:hover {
+  background-color: var(--bg-hover);
+  transform: translateY(-2px);
+}
+
+.gd-app-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.gd-app-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  color: #ffffff;
+  transition: all var(--duration-fast);
+}
+
+.gd-app-item:hover .gd-app-icon-wrapper {
+  box-shadow: var(--shadow-md);
+  transform: scale(1.05);
+}
+
+/* App icons specific gradients */
+.gd-app-icon-wrapper.telegram-web {
+  background: linear-gradient(135deg, #38bdf8, #0284c7);
+}
+
+.gd-app-icon-wrapper.channel-link {
+  background: linear-gradient(135deg, #2dd4bf, #0d9488);
+}
+
+.gd-app-icon-wrapper.storage-detail {
+  background: linear-gradient(135deg, #c084fc, #7c3aed);
+}
+
+.gd-app-icon-wrapper.diagnostics {
+  background: linear-gradient(135deg, #f472b6, #db2777);
+}
+
+.gd-app-title {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Help Modal Specifics */
+.help-modal {
+  max-width: 640px !important;
+}
+
+.help-hero {
+  padding: var(--space-4);
+  background: rgba(11, 87, 208, 0.07);
+  border: 1px solid rgba(11, 87, 208, 0.15);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-5);
+  box-shadow: inset 0 0 12px rgba(11, 87, 208, 0.05);
+}
+
+.help-hero h4 {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.help-hero p {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.help-section {
+  margin-bottom: var(--space-5);
+}
+
+.help-section h5 {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.help-section p {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* Settings Modal Specifics */
+.settings-modal {
+  max-width: 580px !important;
+}
+
+.settings-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.settings-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  transition: border-color var(--duration-fast);
+}
+
+.settings-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.settings-card-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.settings-card-desc {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-4);
+  line-height: 1.4;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.select-custom {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: var(--space-9) !important;
+}
+
+.settings-form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.settings-error {
+  color: var(--danger);
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.settings-success {
+  color: #10b981;
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+}
+
+.diagnostics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.diagnostic-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-xs);
+}
+
+.diagnostic-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.diagnostic-value {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.diagnostic-badge {
+  font-size: var(--text-xxs);
+  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.diagnostic-badge.connected {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.diagnostic-badge.disconnected {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.btn-warning {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.btn-warning:hover {
+  background-color: #f59e0b;
+  color: #ffffff;
+  border-color: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+}
+
+.btn-warning:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
 
 
