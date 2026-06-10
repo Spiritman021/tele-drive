@@ -1,21 +1,92 @@
-const SW_VERSION = 'v1';
+const CACHE_NAME = 'teledrive-static-v1';
+const PRECACHE_ASSETS = [
+  '/',
+  '/index.html',
+  '/favicon.svg',
+  '/vite.svg',
+  '/manifest.json'
+];
 
 self.addEventListener('install', (event) => {
-  // Activate immediately
-  self.skipWaiting();
+  // Pre-cache key assets and force immediate activation
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE_ASSETS))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // Clean up old caches and claim clients
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[ServiceWorker] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Check if this is a stream request
+  // 1. Media Streaming: Bypass cache and handle progressive loading ranges
   if (url.pathname.startsWith('/stream/')) {
     event.respondWith(handleStreamRequest(event));
+    return;
   }
+
+  // Only handle GET requests for standard assets
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // 2. Static Assets Caching (Stale-While-Revalidate)
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        // Fetch new version in the background to update the cache
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse.status === 200 && url.protocol.startsWith('http')) {
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+            }
+          })
+          .catch(() => {/* Ignore background fetch errors */});
+
+        return cachedResponse;
+      }
+
+      // Fetch from network and cache for next time
+      return fetch(event.request)
+        .then((networkResponse) => {
+          if (!networkResponse || networkResponse.status !== 200) {
+            return networkResponse;
+          }
+
+          if (url.protocol.startsWith('http')) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+
+          return networkResponse;
+        })
+        .catch((err) => {
+          // If offline and request is for page navigation, return cached index.html
+          if (event.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+          throw err;
+        });
+    })
+  );
 });
 
 async function handleStreamRequest(event) {
@@ -23,14 +94,6 @@ async function handleStreamRequest(event) {
   const parts = url.pathname.split('/');
   
   // URL structure: /stream/:channelId/:messageId/:fileSize/:mimeTypeMapped/:fileName
-  // parts[0] = ""
-  // parts[1] = "stream"
-  // parts[2] = channelId
-  // parts[3] = messageId
-  // parts[4] = fileSize
-  // parts[5] = mimeTypeMapped
-  // parts[6] = fileName
-
   if (parts.length < 6) {
     return new Response('Invalid stream URL', { status: 400 });
   }
@@ -43,9 +106,7 @@ async function handleStreamRequest(event) {
   const rangeHeader = event.request.headers.get('Range');
   
   if (!rangeHeader) {
-    // If there is no range header, the browser wants the entire file or just wants to check headers.
-    // For media elements, we should return a 206 response containing the first block (e.g. 1MB).
-    // This allows the browser to realize it's seekable and issue subsequent range requests.
+    // If there is no range header, return a 206 response containing the first block (e.g. 1MB).
     return serveChunk(event.clientId, channelId, messageId, 0, Math.min(1024 * 1024 - 1, fileSize - 1), fileSize, mimeType);
   }
 

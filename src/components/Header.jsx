@@ -9,6 +9,7 @@ export default function Header({
   drives = [],
   activeDrive = null,
   onSwitchDrive,
+  onToggleSidebar,
 }) {
   const { logout } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -34,6 +35,13 @@ export default function Header({
     <header className="gd-header">
       {/* Left: Logo & Drive Switcher */}
       <div className="gd-header-left">
+        <button
+          className="gd-header-menu-btn"
+          onClick={onToggleSidebar}
+          title="Main menu"
+        >
+          <Menu size={20} />
+        </button>
         <div className="gd-logo-container">
           <div className="gd-logo-icon">
             <Cloud size={24} color="#0b57d0" strokeWidth={2.5} />

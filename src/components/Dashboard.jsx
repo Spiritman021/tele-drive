@@ -58,6 +58,22 @@ export default function Dashboard() {
   // Redesign state
   const [activeTab, setActiveTab] = useState('my-drive'); // 'home' | 'my-drive' | 'computers' | 'shared' | 'recent' | 'starred' | 'spam' | 'trash' | 'storage'
   const [storageUsed, setStorageUsed] = useState(0);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Auto collapse sidebar on mobile
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (window.innerWidth <= 768) {
+        setIsSidebarCollapsed(true);
+      } else {
+        setIsSidebarCollapsed(false);
+      }
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -910,7 +926,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className="gd-layout-wrapper"
+      className={`gd-layout-wrapper ${isSidebarCollapsed ? 'gd-sidebar-collapsed' : ''}`}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -924,9 +940,16 @@ export default function Dashboard() {
         drives={drives}
         activeDrive={activeDrive}
         onSwitchDrive={handleSwitchDrive}
+        onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      <div className="gd-layout-body">
+      <div className={`gd-layout-body ${isSidebarCollapsed ? 'gd-sidebar-collapsed' : ''}`}>
+        {/* Sidebar mobile backdrop */}
+        <div
+          className={`gd-sidebar-backdrop ${!isSidebarCollapsed ? 'visible' : ''}`}
+          onClick={() => setIsSidebarCollapsed(true)}
+        />
+
         {/* 2. Left Sidebar */}
         <Sidebar
           folders={folders}
@@ -940,6 +963,7 @@ export default function Dashboard() {
           storageUsed={storageUsed}
           readOnly={activeDrive ? !activeDrive.canPost : false}
           tags={tags}
+          isSidebarCollapsed={isSidebarCollapsed}
         />
 
         {/* 3. Main Content Canvas */}

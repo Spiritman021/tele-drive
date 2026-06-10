@@ -12,6 +12,7 @@ import {
   FolderPlus,
   Upload,
   Hash,
+  Download,
 } from 'lucide-react';
 import { formatBytes } from '../utils/helpers';
 
@@ -26,11 +27,46 @@ export default function Sidebar({
   storageUsed = 0,
   tags = [],
   readOnly = false,
+  isSidebarCollapsed = false,
 }) {
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showFoldersList, setShowFoldersList] = useState(true);
   const [showTagsList, setShowTagsList] = useState(true);
   const newMenuRef = useRef(null);
+
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+      console.log('[PWA] App was installed successfully');
+    };
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`[PWA] Install prompt outcome: ${outcome}`);
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -52,18 +88,21 @@ export default function Sidebar({
     setShowNewMenu(false);
   };
 
+  const displayFoldersList = showFoldersList && !isSidebarCollapsed;
+  const displayTagsList = showTagsList && !isSidebarCollapsed;
+
   return (
-    <aside className="gd-sidebar">
+    <aside className={`gd-sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
       {/* 1. + New Floating Button */}
       <div className="gd-new-btn-container" ref={newMenuRef}>
         <button
-          className={`gd-new-btn shadow-md ${readOnly ? 'gd-new-btn-disabled' : ''}`}
+          className={`gd-new-btn shadow-md ${readOnly ? 'gd-new-btn-disabled' : ''} ${isSidebarCollapsed ? 'collapsed' : ''}`}
           onClick={handleNewClick}
           disabled={readOnly}
-          title={readOnly ? 'Drive is read-only' : 'New'}
+          title={isSidebarCollapsed ? "New" : (readOnly ? 'Drive is read-only' : 'New')}
         >
           <Plus size={24} className="gd-new-icon" />
-          <span>New</span>
+          {!isSidebarCollapsed && <span>New</span>}
         </button>
 
         {showNewMenu && (
@@ -99,9 +138,10 @@ export default function Sidebar({
         <button
           className={`gd-sidebar-item ${activeTab === 'home' ? 'active' : ''}`}
           onClick={() => selectTab('home')}
+          title={isSidebarCollapsed ? "Home" : ""}
         >
           <Home size={18} />
-          <span>Home</span>
+          {!isSidebarCollapsed && <span>Home</span>}
         </button>
 
         {/* My Drive (With collapsible folders) */}
@@ -110,24 +150,27 @@ export default function Sidebar({
             className={`gd-sidebar-item ${
               activeTab === 'my-drive' && !currentFolder ? 'active' : ''
             }`}
+            title={isSidebarCollapsed ? "My Drive" : ""}
           >
-            <button
-              className="gd-chevron-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowFoldersList(!showFoldersList);
-              }}
-            >
-              {showFoldersList ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
+            {!isSidebarCollapsed && (
+              <button
+                className="gd-chevron-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowFoldersList(!showFoldersList);
+                }}
+              >
+                {showFoldersList ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+            )}
             <div className="gd-sidebar-item-click" onClick={() => selectTab('my-drive')}>
               <HardDrive size={18} />
-              <span>My Drive</span>
+              {!isSidebarCollapsed && <span>My Drive</span>}
             </div>
           </div>
 
           {/* Nested Folders */}
-          {showFoldersList && folders.length > 0 && (
+          {displayFoldersList && folders.length > 0 && (
             <div className="gd-sidebar-nested-folders">
               {folders.map((folder) => (
                 <button
@@ -152,49 +195,54 @@ export default function Sidebar({
         <button
           className={`gd-sidebar-item ${activeTab === 'recent' ? 'active' : ''}`}
           onClick={() => selectTab('recent')}
+          title={isSidebarCollapsed ? "Recent" : ""}
         >
           <Clock size={18} />
-          <span>Recent</span>
+          {!isSidebarCollapsed && <span>Recent</span>}
         </button>
 
         {/* Starred */}
         <button
           className={`gd-sidebar-item ${activeTab === 'starred' ? 'active' : ''}`}
           onClick={() => selectTab('starred')}
+          title={isSidebarCollapsed ? "Starred" : ""}
         >
           <Star size={18} />
-          <span>Starred</span>
+          {!isSidebarCollapsed && <span>Starred</span>}
         </button>
 
         {/* Storage */}
         <button
           className={`gd-sidebar-item ${activeTab === 'storage' ? 'active' : ''}`}
           onClick={() => selectTab('storage')}
+          title={isSidebarCollapsed ? "Storage" : ""}
         >
           <Cloud size={18} />
-          <span>Storage</span>
+          {!isSidebarCollapsed && <span>Storage</span>}
         </button>
 
         {/* Tags Section */}
         <div className="gd-sidebar-item-group" style={{ marginTop: '12px' }}>
-          <div className="gd-sidebar-item">
-            <button
-              className="gd-chevron-btn"
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowTagsList(!showTagsList);
-              }}
-            >
-              {showTagsList ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            </button>
-            <div className="gd-sidebar-item-click" style={{ cursor: 'default' }}>
+          <div className="gd-sidebar-item" title={isSidebarCollapsed ? "Tags" : ""}>
+            {!isSidebarCollapsed && (
+              <button
+                className="gd-chevron-btn"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTagsList(!showTagsList);
+                }}
+              >
+                {showTagsList ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+            )}
+            <div className="gd-sidebar-item-click" style={{ cursor: 'default' }} onClick={() => isSidebarCollapsed && selectTab('tags-list-root')}>
               <Hash size={18} />
-              <span>Tags</span>
+              {!isSidebarCollapsed && <span>Tags</span>}
             </div>
           </div>
 
-          {showTagsList && (
+          {displayTagsList && (
             <div className="gd-sidebar-nested-folders">
               {tags.length > 0 ? (
                 tags.map((tag) => (
@@ -221,17 +269,87 @@ export default function Sidebar({
       </nav>
 
       {/* 3. Storage Meter */}
-      <div className="gd-storage-meter-section">
-        <div className="gd-storage-bar-container">
-          <div
-            className="gd-storage-bar-fill"
-            style={{ width: '0%' }}
-          />
+      {!isSidebarCollapsed && (
+        <div className="gd-storage-meter-section">
+          <div className="gd-storage-bar-container">
+            <div
+              className="gd-storage-bar-fill"
+              style={{ width: '0%' }}
+            />
+          </div>
+          <span className="gd-storage-text">
+            {formatBytes(storageUsed)} of Unlimited used
+          </span>
         </div>
-        <span className="gd-storage-text">
-          {formatBytes(storageUsed)} of Unlimited used
-        </span>
-      </div>
+      )}
+
+      {/* 4. Install App Button (Expanded) */}
+      {showInstallBtn && !isSidebarCollapsed && (
+        <div className="gd-install-app-section" style={{ padding: '0 16px 16px 16px', marginTop: 'auto' }}>
+          <button
+            onClick={handleInstallClick}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              fontSize: '13px',
+              fontWeight: 600,
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            <Download size={16} />
+            <span>Install App</span>
+          </button>
+        </div>
+      )}
+
+      {/* Install App Button (Collapsed) */}
+      {showInstallBtn && isSidebarCollapsed && (
+        <div className="gd-install-app-collapsed" style={{ display: 'flex', justifyContent: 'center', padding: '16px 0', marginTop: 'auto' }}>
+          <button
+            onClick={handleInstallClick}
+            title="Install App"
+            style={{
+              padding: '10px',
+              borderRadius: '12px',
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }}
+          >
+            <Download size={18} />
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
