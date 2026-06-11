@@ -2,6 +2,7 @@ import { TelegramClient, Api } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { Buffer } from 'buffer';
 import bigInt from 'big-integer';
+import { NewMessage } from 'telegram/events';
 
 
 const SESSION_KEY = 'teledrive_session';
@@ -9,6 +10,7 @@ const SESSION_KEY = 'teledrive_session';
 class TelegramService {
   constructor() {
     this.client = null;
+    this._entityCache = {};
   }
 
   /**
@@ -561,6 +563,160 @@ class TelegramService {
       console.error('[TelegramService] downloadRange failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Resolves an entity and caches it.
+   */
+  async getEntityCached(id) {
+    if (this._entityCache[id]) return this._entityCache[id];
+    try {
+      if (!this.client) return null;
+      const entity = await this.client.getEntity(id);
+      this._entityCache[id] = entity;
+      return entity;
+    } catch (err) {
+      console.warn('[TelegramService] Failed to resolve entity:', id, err.message);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches text messages from a channel (for chat integration).
+   * Filters out metadata JSON messages.
+   */
+  async getChatMessages(channelOrId, limit = 50, offsetId = 0) {
+    try {
+      if (!this.client) {
+        throw new Error('Telegram client not initialized');
+      }
+      const channel = await this._resolveEntity(channelOrId);
+      const messages = await this.client.getMessages(channel, {
+        limit,
+        offsetId: offsetId || undefined,
+      });
+
+      const chatMessages = [];
+      for (const msg of messages) {
+        // Exclude folder metadata JSON messages (which are text with version/folders/files attribute)
+        if (msg.message) {
+          try {
+            const parsed = JSON.parse(msg.message);
+            if (parsed.version && (parsed.folders || parsed.files)) {
+              continue;
+            }
+          } catch {}
+        }
+
+        let senderName = 'Unknown User';
+        let senderUsername = '';
+        if (msg.senderId) {
+          const sender = await this.getEntityCached(msg.senderId);
+          if (sender) {
+            senderName = sender.firstName
+              ? `${sender.firstName} ${sender.lastName || ''}`.trim()
+              : sender.title || 'Unknown';
+            senderUsername = sender.username || '';
+          }
+        }
+
+        chatMessages.push({
+          id: msg.id,
+          text: msg.message || (msg.media ? '[Media/Attachment]' : ''),
+          date: msg.date,
+          senderId: msg.senderId ? msg.senderId.toString() : null,
+          senderName,
+          senderUsername,
+          outgoing: msg.out,
+        });
+      }
+
+      // Reverse so it's in chronological order (oldest first) for rendering
+      return chatMessages.reverse();
+    } catch (error) {
+      console.error('[TelegramService] getChatMessages failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Subscribes to real-time chat messages in a channel.
+   */
+  subscribeToMessages(channelOrId, callback) {
+    if (!this.client) {
+      console.warn('[TelegramService] subscribeToMessages: client not initialized');
+      return () => {};
+    }
+
+    const handler = async (event) => {
+      try {
+        const msg = event.message;
+        if (!msg) return;
+
+        const targetEntity = await this._resolveEntity(channelOrId);
+        const targetId = targetEntity.id ? targetEntity.id.toString() : '';
+
+        const peerId = msg.peerId;
+        let msgChatId = '';
+        if (peerId) {
+          if (peerId.channelId) msgChatId = peerId.channelId.toString();
+          else if (peerId.chatId) msgChatId = peerId.chatId.toString();
+          else if (peerId.userId) msgChatId = peerId.userId.toString();
+        }
+
+        const isSavedMessages = channelOrId === 'me' || targetId === 'me';
+        if (isSavedMessages) {
+          const me = await this.client.getMe();
+          const meId = me.id.toString();
+          const isMsgToMe = peerId && peerId.userId && peerId.userId.toString() === meId;
+          if (!isMsgToMe) return;
+        } else {
+          if (msgChatId !== targetId) return;
+        }
+
+        // Filter folder metadata JSON
+        if (msg.message) {
+          try {
+            const parsed = JSON.parse(msg.message);
+            if (parsed.version && (parsed.folders || parsed.files)) {
+              return;
+            }
+          } catch {}
+        }
+
+        let senderName = 'Unknown User';
+        let senderUsername = '';
+        if (msg.senderId) {
+          const sender = await this.getEntityCached(msg.senderId);
+          if (sender) {
+            senderName = sender.firstName
+              ? `${sender.firstName} ${sender.lastName || ''}`.trim()
+              : sender.title || 'Unknown';
+            senderUsername = sender.username || '';
+          }
+        }
+
+        callback({
+          id: msg.id,
+          text: msg.message || (msg.media ? '[Media/Attachment]' : ''),
+          date: msg.date,
+          senderId: msg.senderId ? msg.senderId.toString() : null,
+          senderName,
+          senderUsername,
+          outgoing: msg.out,
+        });
+      } catch (err) {
+        console.error('[TelegramService] Error processing new message event:', err);
+      }
+    };
+
+    this.client.addEventHandler(handler, new NewMessage({}));
+
+    return () => {
+      if (this.client) {
+        this.client.removeEventHandler(handler);
+      }
+    };
   }
 }
 

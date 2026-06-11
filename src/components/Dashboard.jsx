@@ -7,6 +7,7 @@ import FileGrid from './FileGrid';
 import UploadZone from './UploadZone';
 import FilePreview from './FilePreview';
 import ShareModal from './ShareModal';
+import ChatPanel from './ChatPanel';
 import metadataService from '../services/metadata';
 import filesService from '../services/files';
 import cacheService from '../services/cache';
@@ -66,6 +67,9 @@ export default function Dashboard() {
   // Help & Settings modal states
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+
+  // Chat panel state
+  const [chatOpen, setChatOpen] = useState(false);
 
   // User preferences states
   const [folderSortOrder, setFolderSortOrder] = useState(() => localStorage.getItem('teledrive_folder_sort') || 'date');
@@ -1066,6 +1070,8 @@ export default function Dashboard() {
           readOnly={activeDrive ? !activeDrive.canPost : false}
           tags={tags}
           isSidebarCollapsed={isSidebarCollapsed}
+          chatOpen={chatOpen}
+          onToggleChat={() => setChatOpen(!chatOpen)}
         />
 
         {/* 3. Main Content Canvas */}
@@ -1379,6 +1385,14 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
+
+      {/* Chat Panel Overlay */}
+      {chatOpen && (
+        <ChatPanel
+          activeDrive={activeDrive}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
 
       {/* 4. Global File Preview Modal */}
       {previewFile && (

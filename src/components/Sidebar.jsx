@@ -14,6 +14,7 @@ import {
   Hash,
   Download,
   Share2,
+  MessageSquare,
 } from 'lucide-react';
 import { formatBytes } from '../utils/helpers';
 
@@ -45,6 +46,8 @@ export default function Sidebar({
   tags = [],
   readOnly = false,
   isSidebarCollapsed = false,
+  chatOpen = false,
+  onToggleChat,
 }) {
   const [showNewMenu, setShowNewMenu] = useState(false);
   const [showFoldersList, setShowFoldersList] = useState(true);
@@ -252,6 +255,16 @@ export default function Sidebar({
         >
           <Cloud size={18} />
           {!isSidebarCollapsed && <span>Storage</span>}
+        </button>
+
+        {/* Chat */}
+        <button
+          className={`gd-sidebar-item ${chatOpen ? 'active' : ''}`}
+          onClick={onToggleChat}
+          title={isSidebarCollapsed ? "Chat" : ""}
+        >
+          <MessageSquare size={18} style={{ color: chatOpen ? '#1a73e8' : 'inherit' }} />
+          {!isSidebarCollapsed && <span>Chat</span>}
         </button>
 
         {/* Tags Section */}
